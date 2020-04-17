@@ -21,7 +21,6 @@ namespace IdentityServer4.Quickstart.UI
     [AllowAnonymous]
     public class ExternalController : Controller
     {
-        private readonly TestUserStore _users;
         private readonly IIdentityServerInteractionService _interaction;
         private readonly IClientStore _clientStore;
         private readonly ILogger<ExternalController> _logger;
@@ -31,13 +30,8 @@ namespace IdentityServer4.Quickstart.UI
             IIdentityServerInteractionService interaction,
             IClientStore clientStore,
             IEventService events,
-            ILogger<ExternalController> logger,
-            TestUserStore users = null)
+            ILogger<ExternalController> logger)
         {
-            // if the TestUserStore is not in DI, then we'll just use the global users collection
-            // this is where you would plug in your own custom identity management library (e.g. ASP.NET Identity)
-            _users = users ?? new TestUserStore(TestUsers.Users);
-
             _interaction = interaction;
             _clientStore = clientStore;
             _logger = logger;
@@ -48,7 +42,7 @@ namespace IdentityServer4.Quickstart.UI
         /// initiate roundtrip to external authentication provider
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> Challenge(string scheme, string returnUrl)
+        public async Task<IActionResult> Challenge(string provider, string returnUrl)
         {
             if (string.IsNullOrEmpty(returnUrl)) returnUrl = "~/";
 
@@ -59,7 +53,7 @@ namespace IdentityServer4.Quickstart.UI
                 throw new Exception("invalid return URL");
             }
 
-            if (AccountOptions.WindowsAuthenticationSchemeName == scheme)
+            if (AccountOptions.WindowsAuthenticationSchemeName == provider)
             {
                 // windows authentication needs special handling
                 return await ProcessWindowsLoginAsync(returnUrl);
@@ -73,11 +67,11 @@ namespace IdentityServer4.Quickstart.UI
                     Items =
                     {
                         { "returnUrl", returnUrl },
-                        { "scheme", scheme },
+                        { "scheme", provider },
                     }
                 };
 
-                return Challenge(props, scheme);
+                return Challenge(props, provider);
             }
         }
 
@@ -101,33 +95,23 @@ namespace IdentityServer4.Quickstart.UI
             }
 
             // lookup our user and external provider info
-            var (user, provider, providerUserId, claims) = FindUserFromExternalProvider(result);
-            if (user == null)
+            var (subId, name, provider, providerUserId, claims) = FindUserFromExternalProvider(result);
+            if (subId == null)
             {
-                // this might be where you might initiate a custom workflow for user registration
-                // in this sample we don't show how that would be done, as our sample implementation
-                // simply auto-provisions new external user
-                user = AutoProvisionUser(provider, providerUserId, claims);
+                return View("Error");
             }
 
-            // this allows us to collect any additional claims or properties
-            // for the specific protocols used and store them in the local auth cookie.
+            // this allows us to collect any additonal claims or properties
+            // for the specific prtotocols used and store them in the local auth cookie.
             // this is typically used to store data needed for signout from those protocols.
             var additionalLocalClaims = new List<Claim>();
             var localSignInProps = new AuthenticationProperties();
             ProcessLoginCallbackForOidc(result, additionalLocalClaims, localSignInProps);
-            //ProcessLoginCallbackForWsFed(result, additionalLocalClaims, localSignInProps);
-            //ProcessLoginCallbackForSaml2p(result, additionalLocalClaims, localSignInProps);
+            ProcessLoginCallbackForWsFed(result, additionalLocalClaims, localSignInProps);
+            ProcessLoginCallbackForSaml2p(result, additionalLocalClaims, localSignInProps);
 
             // issue authentication cookie for user
-            var isuser = new IdentityServerUser(user.SubjectId)
-            {
-                DisplayName = user.Username,
-                IdentityProvider = provider,
-                AdditionalClaims = additionalLocalClaims
-            };
-
-            await HttpContext.SignInAsync(isuser, localSignInProps);
+            await HttpContext.SignInAsync(subId, name, provider, localSignInProps, additionalLocalClaims.ToArray());
 
             // delete temporary cookie used during external authentication
             await HttpContext.SignOutAsync(IdentityServer4.IdentityServerConstants.ExternalCookieAuthenticationScheme);
@@ -137,15 +121,15 @@ namespace IdentityServer4.Quickstart.UI
 
             // check if external login is in the context of an OIDC request
             var context = await _interaction.GetAuthorizationContextAsync(returnUrl);
-            await _events.RaiseAsync(new UserLoginSuccessEvent(provider, providerUserId, user.SubjectId, user.Username, true, context?.Client.ClientId));
+            await _events.RaiseAsync(new UserLoginSuccessEvent(provider, providerUserId, subId, name, true, context?.ClientId));
 
             if (context != null)
             {
-                if (context.IsNativeClient())
+                if (await _clientStore.IsPkceClientAsync(context.ClientId))
                 {
-                    // The client is native, so this change in how to
+                    // if the client is PKCE then we assume it's native, so this change in how to
                     // return the response is for better UX for the end user.
-                    return this.LoadingPage("Redirect", returnUrl);
+                    return View("Redirect", new RedirectViewModel { RedirectUrl = returnUrl });
                 }
             }
 
@@ -199,7 +183,7 @@ namespace IdentityServer4.Quickstart.UI
             }
         }
 
-        private (TestUser user, string provider, string providerUserId, IEnumerable<Claim> claims) FindUserFromExternalProvider(AuthenticateResult result)
+        private (string subId, string name, string provider, string providerUserId, IEnumerable<Claim> claims) FindUserFromExternalProvider(AuthenticateResult result)
         {
             var externalUser = result.Principal;
 
@@ -218,15 +202,10 @@ namespace IdentityServer4.Quickstart.UI
             var providerUserId = userIdClaim.Value;
 
             // find external user
-            var user = _users.FindByExternalProvider(provider, providerUserId);
+            var subId = "123";
+            var name = "Some User";
 
-            return (user, provider, providerUserId, claims);
-        }
-
-        private TestUser AutoProvisionUser(string provider, string providerUserId, IEnumerable<Claim> claims)
-        {
-            var user = _users.AutoProvisionUser(provider, providerUserId, claims.ToList());
-            return user;
+            return (subId, name, provider, providerUserId, claims);
         }
 
         private void ProcessLoginCallbackForOidc(AuthenticateResult externalResult, List<Claim> localClaims, AuthenticationProperties localSignInProps)
@@ -247,12 +226,12 @@ namespace IdentityServer4.Quickstart.UI
             }
         }
 
-        //private void ProcessLoginCallbackForWsFed(AuthenticateResult externalResult, List<Claim> localClaims, AuthenticationProperties localSignInProps)
-        //{
-        //}
+        private void ProcessLoginCallbackForWsFed(AuthenticateResult externalResult, List<Claim> localClaims, AuthenticationProperties localSignInProps)
+        {
+        }
 
-        //private void ProcessLoginCallbackForSaml2p(AuthenticateResult externalResult, List<Claim> localClaims, AuthenticationProperties localSignInProps)
-        //{
-        //}
+        private void ProcessLoginCallbackForSaml2p(AuthenticateResult externalResult, List<Claim> localClaims, AuthenticationProperties localSignInProps)
+        {
+        }
     }
 }

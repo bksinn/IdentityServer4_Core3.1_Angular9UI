@@ -44,4 +44,3 @@ namespace IdentityServer4.Quickstart.UI
         }
     }
 }
-}
