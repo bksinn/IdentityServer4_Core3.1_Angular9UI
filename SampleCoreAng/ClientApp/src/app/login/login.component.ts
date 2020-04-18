@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormControl, FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { Router, ActivatedRoute, Params } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-login',
@@ -14,6 +15,7 @@ export class LoginComponent implements OnInit {
   logInData: ILogin;
 
   constructor(
+    private http: HttpClient,
     private activatedRoute: ActivatedRoute,
     private formBuilder: FormBuilder) {
     this.activatedRoute.queryParams.subscribe(
@@ -30,6 +32,10 @@ export class LoginComponent implements OnInit {
       email: ['', Validators.required],
       password: ['', Validators.required]
     })
+  }
+
+  logIn() {
+    //this.http.post("https://localhost:5001/Account/Login", )
   }
 
 }

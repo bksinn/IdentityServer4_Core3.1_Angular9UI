@@ -1,7 +1,7 @@
 <h1 style="text-align:center">
   Angular 9 Login Example
 </h1>
-<div class="login">
+<div class="container login">
   <h2 class="login-header">Log in</h2>
   <form [formGroup]="loginForm" class="login-container" (ngSubmit)="login()">
 
@@ -22,7 +22,7 @@
     </div>
 
     <p>
-      <input type="submit" value="Log in">
+      <button class="btn btn-primary" type="button" (click)="logIn()"></button>
     </p>
   </form>
 </div>
