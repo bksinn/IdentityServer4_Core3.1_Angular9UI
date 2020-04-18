@@ -60,7 +60,7 @@ namespace IdentityServer4.Quickstart.UI
                 return RedirectToAction("Challenge", "External", new { provider = vm.ExternalLoginScheme, returnUrl });
             }
 
-            return View(vm);
+            return RedirectToAction("", vm);
         }
 
         /// <summary>
