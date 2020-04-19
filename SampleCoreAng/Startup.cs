@@ -27,6 +27,9 @@ namespace SampleCoreAng
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // Angular's default header name for sending the XSRF token.
+            services.AddAntiforgery(options => options.HeaderName = "X-XSRF-TOKEN");
+
             services.AddControllersWithViews();
             // In production, the Angular files will be served from this directory
 
@@ -92,6 +95,26 @@ namespace SampleCoreAng
             //}
 
             //app.UseHttpsRedirection();
+
+            app.Use(async (context, next) =>
+            {
+                string path = context.Request.Path.Value;
+                if (path != null)
+                {
+                    // XSRF-TOKEN used by angular in the $http if provided
+                    var tokens = antiforgery.GetAndStoreTokens(context);
+                    context.Response.Cookies.Append("XSRF-TOKEN",
+                      tokens.RequestToken, new CookieOptions
+                      {
+                          HttpOnly = false,
+                          Secure = true
+                      }
+                    );
+                } 
+
+                await next();
+            });
+
             app.UseStaticFiles();
 
             app.UseRouting();
@@ -110,24 +133,6 @@ namespace SampleCoreAng
             //{
             //    endpoints.MapDefaultControllerRoute();
             //});
-
-            app.Use(next => context =>
-            {
-                string path = context.Request.Path.Value;
-
-                if (
-                    string.Equals(path, "/", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(path, "/index.html", StringComparison.OrdinalIgnoreCase))
-                {
-                    // The request token can be sent as a JavaScript-readable cookie, 
-                    // and Angular uses it by default.
-                    var tokens = antiforgery.GetAndStoreTokens(context);
-                    context.Response.Cookies.Append("XSRF-TOKEN", tokens.RequestToken,
-                        new CookieOptions() { HttpOnly = false });
-                }
-
-                return next(context);
-            });
 
             app.UseSpa(spa =>
             {

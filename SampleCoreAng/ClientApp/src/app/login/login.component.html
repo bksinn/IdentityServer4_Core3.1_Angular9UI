@@ -2,11 +2,10 @@
   Angular 9 Login Example
 </h1>
 <div class="container login">
-  <h2 class="login-header">Log in</h2>
-  <form [formGroup]="loginForm" class="login-container" (ngSubmit)="login()">
+  <form [formGroup]="loginForm" class="login-container" novalidate>
 
     <p [ngClass]="{ 'has-error': isSubmitted && formControls.username.errors }">
-      <input type="email" placeholder="User Name" formControlName="username">
+      <input class="form-control" type="email" placeholder="User Name" formControlName="username">
     </p>
 
     <div *ngIf="isSubmitted && formControls.username.errors" class="help-block">
@@ -14,7 +13,7 @@
     </div>
 
     <p [ngClass]="{ 'has-error': isSubmitted && formControls.password.errors }">
-      <input type="password" placeholder="Password" formControlName="password">
+      <input class="form-control" type="password" placeholder="Password" formControlName="password">
     </p>
 
     <div *ngIf="isSubmitted && formControls.password.errors" class="help-block">
@@ -22,7 +21,10 @@
     </div>
 
     <p>
-      <button class="btn btn-primary" type="button" (click)="logIn()"></button>
+      <button class="btn btn-primary" type="submit" (click)="logIn(loginForm)" [disabled]="!loginForm.valid">
+        Log In
+      </button>
     </p>
+    <input type="hidden" name="AntiforgeryFieldname" />
   </form>
 </div>
