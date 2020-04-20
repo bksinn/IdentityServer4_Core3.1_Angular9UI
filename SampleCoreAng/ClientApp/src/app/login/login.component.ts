@@ -12,6 +12,7 @@ import { CookieService } from 'ngx-cookie-service';
 })
 export class LoginComponent implements OnInit {
   private antiForgeryToken: string;
+  private invalidCredentials: boolean;
 
   loginForm = new FormGroup({
     username: new FormControl(),
@@ -73,9 +74,13 @@ export class LoginComponent implements OnInit {
 
     this.http.post("https://localhost:5001/Account/Login", formBody.toString(), options).subscribe(
       res => {
+        this.invalidCredentials = false;
         window.location.href = this.returnUrl
       },
-      err => console.error(err)
+      err => {
+        console.error(err);
+        this.invalidCredentials = true;
+      }
     )
     
   }

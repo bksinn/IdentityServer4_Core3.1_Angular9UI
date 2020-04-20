@@ -47,10 +47,10 @@ namespace SampleCoreAng
                 iis.AutomaticAuthentication = false;
             });
 
-            //services.AddSpaStaticFiles(configuration =>
-            //{
-            //    configuration.RootPath = "ClientApp/dist";
-            //});
+            services.AddSpaStaticFiles(configuration =>
+            {
+                configuration.RootPath = "ClientApp/dist";
+            });
 
             var builder = services.AddIdentityServer(options =>
             {
@@ -89,13 +89,14 @@ namespace SampleCoreAng
                 app.UseHsts();
             }
 
-            //if (!Environment.IsDevelopment())
-            //{
-            //    app.UseSpaStaticFiles();
-            //}
+            if (!Environment.IsDevelopment())
+            {
+                app.UseSpaStaticFiles();
+            }
 
-            //app.UseHttpsRedirection();
+            app.UseHttpsRedirection();
 
+            //Adds headers and sends to Client (Angular)
             app.Use(async (context, next) =>
             {
                 string path = context.Request.Path.Value;

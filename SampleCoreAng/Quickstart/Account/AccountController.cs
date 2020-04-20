@@ -60,6 +60,7 @@ namespace IdentityServer4.Quickstart.UI
                 return RedirectToAction("Challenge", "External", new { provider = vm.ExternalLoginScheme, returnUrl });
             }
 
+            // return View(vm);
             return RedirectToAction("", vm);
         }
 
@@ -134,7 +135,7 @@ namespace IdentityServer4.Quickstart.UI
                             // return the response is for better UX for the end user.
 
                             //return View("Redirect", new RedirectViewModel { RedirectUrl = model.ReturnUrl });
-                            return StatusCode(202);
+                            return StatusCode(202); //Accepted
                         }
 
                         // we can trust model.ReturnUrl since GetAuthorizationContextAsync returned non-null
@@ -159,7 +160,7 @@ namespace IdentityServer4.Quickstart.UI
 
                 await _events.RaiseAsync(new UserLoginFailureEvent(model.Username, "invalid credentials", clientId:context?.ClientId));
                 ModelState.AddModelError(string.Empty, AccountOptions.InvalidCredentialsErrorMessage);
-                return StatusCode(403);
+                return StatusCode(403); //Forbidden, Not Authenticated
             }
 
             // something went wrong, show form with error
